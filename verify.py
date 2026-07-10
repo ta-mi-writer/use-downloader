@@ -1,40 +1,54 @@
-import sys
-import yt_dlp
+name: Connection Verification (with MissAV Plugin)
 
-def main():
-    if len(sys.argv) < 2:
-        print("エラー: URLが指定されていません。")
-        sys.exit(1)
-        
-    url = sys.argv[1]
-    print(f"ダウンロードを開始します。対象URL: {url}")
-    
-# 実際にダウンロードを行う設定
-    ydl_opts = {
-        'simulate': False,  # シミュレーションを解除
-        'quiet': False,
-        'format': 'mp4/best', # mp4フォーマットの指定
-        'outtmpl': '%(id)s.%(ext)s', # 動画IDをファイル名にする
-        
-        # ★ この1行を追加します。
-        # 毎フラグメント、毎秒ごとの進捗表示を完全に無効化し、ブラウザが重くなるのを防ぎます。
-        'noprogress': True, 
-        
-        'http_headers': {
-            'Referer': 'https://missav.ws/',
-            'Origin': 'https://missav.ws'
-        }
-    }
-    
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # 実際にダウンロードを実行します（download=Trueに相当）
-            ydl.download([url])
-            print("【ダウンロード成功】ファイルを正常に保存しました。")
-                
-    except Exception as e:
-        print(f"【ダウンロード失敗】エラーが発生しました:\n{e}")
-        sys.exit(1)
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: '検証したい動画のURLを入力してください'
+        required: true
+        type: string
+      video_quality:
+        description: '画質を選択してください（デフォルトは 480p）'
+        required: true
+        type: choice
+        default: '480p' # デフォルトの選択肢
+        options:
+          - '1080p'
+          - '720p'
+          - '480p'
+          - '360p'
 
-if __name__ == "__main__":
-    main()
+jobs:
+  verify-connection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. uv のセットアップ
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: '3.11'
+
+      # 2. ffmpegのインストール
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      # 3. 引数に「動画URL」と「選択した画質」の2つを渡して実行します
+      - name: Run download with uv
+        run: |
+          uv run \
+            --with yt-dlp \
+            --with "git+https://github.com/smalltownjj/yt-dlp-plugin-missav.git" \
+            verify.py "${{ github.event.inputs.video_url }}" "${{ github.event.inputs.video_quality }}"
+
+      # 4. ダウンロードされた動画ファイルをGitHubに保存
+      - name: Upload downloaded video
+        uses: actions/upload-artifact@v4
+        with:
+          name: downloaded-video
+          path: "*.mp4"
