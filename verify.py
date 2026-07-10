@@ -9,15 +9,19 @@ def main():
     url = sys.argv[1]
     print(f"検証を開始します。対象URL: {url}")
     
-    # 実際には動画をダウンロードせず、接続と情報抽出のみを行う設定
+    # 証明書代わりのヘッダー情報を追加
     ydl_opts = {
         'simulate': True,  # ダウンロードのシミュレーション（ファイルを保存しない）
         'quiet': False,    # 詳細なログを出力する
+        'http_headers': {
+            'Referer': 'https://missav.ws/',
+            'Origin': 'https://missav.ws'
+        }
     }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # 情報を抽出（アクセス制限されている場合はここでエラーになります）
+            # 情報を抽出
             info = ydl.extract_info(url, download=False)
             
             title = info.get('title', '不明なタイトル')
