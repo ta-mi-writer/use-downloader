@@ -1,0 +1,36 @@
+name: Connection Verification (with uv)
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: '検証したい動画のURLを入力してください'
+        required: true
+        type: string
+
+jobs:
+  verify-connection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. uv のセットアップ
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true       # ★これだけでuvのキャッシュが自動で有効化されます
+          python-version: '3.11'   # 使用したいPythonバージョンを指定
+
+      # 2. yt-dlp を使用して検証スクリプトを実行
+      # uv run --with を使うことで、事前の pip install なしでその場でライブラリを用意して実行できます
+      - name: Run verification with uv
+        run: |
+          uv run --with yt-dlp verify.py "${{ github.event.inputs.video_url }}"
+
+      # 3. 取得したテキストファイルをGitHubに保存
+      - name: Upload verification result
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-metadata-result
+          path: video_info.txt
