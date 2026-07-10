@@ -15,25 +15,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. uv のセットアップとキャッシュの有効化
+      # 1. uv のセットアップ
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
           python-version: '3.11'
 
-      # 2. yt-dlp と 外部プラグインを同時に一時インストールして実行
-      # "--with" 引数を2つ重ねることで、両方のパッケージを内包した一時環境でスクリプトが動きます
-      - name: Run verification with uv
+      # 2. ffmpegのインストール（m3u8の結合に必要になります）
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      # 3. yt-dlp と 外部プラグインを同時にインストールしてダウンロード実行
+      - name: Run download with uv
         run: |
           uv run \
             --with yt-dlp \
             --with "git+https://github.com/smalltownjj/yt-dlp-plugin-missav.git" \
             verify.py "${{ github.event.inputs.video_url }}"
 
-      # 3. 取得したテキストファイルをGitHubに保存（検証が成功した場合のみ実行されます）
-      - name: Upload verification result
+      # 4. ダウンロードされた動画ファイル（mp4）をGitHubに保存して手元で確認できるようにする
+      - name: Upload downloaded video
         uses: actions/upload-artifact@v4
         with:
-          name: video-metadata-result
-          path: video_info.txt
+          name: downloaded-video
+          path: "*.mp4" # 拡張子がmp4のファイルをすべてアップロード
