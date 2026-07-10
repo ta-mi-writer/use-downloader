@@ -1,4 +1,4 @@
-name: Connection Verification (with uv)
+name: Connection Verification (with MissAV Plugin)
 
 on:
   workflow_dispatch:
@@ -15,20 +15,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. uv のセットアップ
+      # 1. uv のセットアップとキャッシュの有効化
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: true       # ★これだけでuvのキャッシュが自動で有効化されます
-          python-version: '3.11'   # 使用したいPythonバージョンを指定
+          enable-cache: true
+          python-version: '3.11'
 
-      # 2. yt-dlp を使用して検証スクリプトを実行
-      # uv run --with を使うことで、事前の pip install なしでその場でライブラリを用意して実行できます
+      # 2. yt-dlp と 外部プラグインを同時に一時インストールして実行
+      # "--with" 引数を2つ重ねることで、両方のパッケージを内包した一時環境でスクリプトが動きます
       - name: Run verification with uv
         run: |
-          uv run --with yt-dlp verify.py "${{ github.event.inputs.video_url }}"
+          uv run \
+            --with yt-dlp \
+            --with "git+https://github.com/smalltownjj/yt-dlp-plugin-missav.git" \
+            verify.py "${{ github.event.inputs.video_url }}"
 
-      # 3. 取得したテキストファイルをGitHubに保存
+      # 3. 取得したテキストファイルをGitHubに保存（検証が成功した場合のみ実行されます）
       - name: Upload verification result
         uses: actions/upload-artifact@v4
         with:
