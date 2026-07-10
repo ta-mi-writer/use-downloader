@@ -11,14 +11,14 @@ def main():
     
 # 実際にダウンロードを行う設定
     ydl_opts = {
-        'simulate': False,  # シミュレーションを解除（実際に保存する）
+        'simulate': False,  # シミュレーションを解除
         'quiet': False,
         'format': 'mp4/best', # mp4フォーマットの指定
+        'outtmpl': '%(id)s.%(ext)s', # 動画IDをファイル名にする
         
-        # ★ ここを変更します。
-        # '%(title)s.%(ext)s' から、動画IDをファイル名にする '%(id)s.%(ext)s' に変更します。
-        # これにより、ファイル名は「ssk-136-uncensored-leak.mp4」のように短く安全なものになります。
-        'outtmpl': '%(id)s.%(ext)s', 
+        # ★ この1行を追加します。
+        # 毎フラグメント、毎秒ごとの進捗表示を完全に無効化し、ブラウザが重くなるのを防ぎます。
+        'noprogress': True, 
         
         'http_headers': {
             'Referer': 'https://missav.ws/',
