@@ -9,12 +9,17 @@ def main():
     url = sys.argv[1]
     print(f"ダウンロードを開始します。対象URL: {url}")
     
-    # 実際にダウンロードを行う設定
+# 実際にダウンロードを行う設定
     ydl_opts = {
-        'simulate': False,  # ★シミュレーションを解除（実際に保存する）
+        'simulate': False,  # シミュレーションを解除（実際に保存する）
         'quiet': False,
-        'format': 'mp4/best', # mp4フォーマットの指定（または最適なものを選択）
-        'outtmpl': '%(title)s.%(ext)s', # 保存するファイル名の形式（タイトル.拡張子）
+        'format': 'mp4/best', # mp4フォーマットの指定
+        
+        # ★ ここを変更します。
+        # '%(title)s.%(ext)s' から、動画IDをファイル名にする '%(id)s.%(ext)s' に変更します。
+        # これにより、ファイル名は「ssk-136-uncensored-leak.mp4」のように短く安全なものになります。
+        'outtmpl': '%(id)s.%(ext)s', 
+        
         'http_headers': {
             'Referer': 'https://missav.ws/',
             'Origin': 'https://missav.ws'
