@@ -7,12 +7,14 @@ def main():
         sys.exit(1)
         
     url = sys.argv[1]
-    print(f"検証を開始します。対象URL: {url}")
+    print(f"ダウンロードを開始します。対象URL: {url}")
     
-    # 証明書代わりのヘッダー情報を追加
+    # 実際にダウンロードを行う設定
     ydl_opts = {
-        'simulate': True,  # ダウンロードのシミュレーション（ファイルを保存しない）
-        'quiet': False,    # 詳細なログを出力する
+        'simulate': False,  # ★シミュレーションを解除（実際に保存する）
+        'quiet': False,
+        'format': 'mp4/best', # mp4フォーマットの指定（または最適なものを選択）
+        'outtmpl': '%(title)s.%(ext)s', # 保存するファイル名の形式（タイトル.拡張子）
         'http_headers': {
             'Referer': 'https://missav.ws/',
             'Origin': 'https://missav.ws'
@@ -21,21 +23,12 @@ def main():
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # 情報を抽出
-            info = ydl.extract_info(url, download=False)
-            
-            title = info.get('title', '不明なタイトル')
-            duration = info.get('duration', '不明')
-            print(f"【接続成功】動画タイトル: {title}")
-            
-            # 結果をテキストファイルに書き出す
-            with open("video_info.txt", "w", encoding="utf-8") as f:
-                f.write(f"URL: {url}\n")
-                f.write(f"Title: {title}\n")
-                f.write(f"Duration: {duration} seconds\n")
+            # 実際にダウンロードを実行します（download=Trueに相当）
+            ydl.download([url])
+            print("【ダウンロード成功】ファイルを正常に保存しました。")
                 
     except Exception as e:
-        print(f"【接続失敗】アクセスが遮断された、またはエラーが発生しました:\n{e}")
+        print(f"【ダウンロード失敗】エラーが発生しました:\n{e}")
         sys.exit(1)
 
 if __name__ == "__main__":
