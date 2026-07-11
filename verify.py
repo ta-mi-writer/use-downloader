@@ -1,5 +1,8 @@
 import sys
-import re  # ★ 正規表現モジュールをインポートします
+import os
+import re
+import json
+from urllib.parse import urlparse
 import yt_dlp
 
 def main():
@@ -7,41 +10,55 @@ def main():
         print("エラー: URLが指定されていません。")
         sys.exit(1)
         
-    url = sys.argv[1]
+    original_url = sys.argv[1]
     
-    # 1. 引数から画質設定を受け取る（デフォルトは 480p）
+    # 1. 入力されたURLから、動画の固有ID（例: siro-5231 や dm285）を抽出します
+    # 保存用のファイル名（video_id）と、Kaggleのデータセット名に使用します
+    video_id = original_url.rstrip('/').split('/')[-1]
+    
+    # 2. 【ミラーサイト対策】
+    # 入力されたミラーサイト（例: https://missav.ai や https://njavtv.com など）から、
+    # プロトコルとドメイン名だけを動的に抽出します
+    parsed_url = urlparse(original_url)
+    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+    
+    # 引数から画質設定を受け取る
     quality_str = sys.argv[2] if len(sys.argv) >= 3 else "480p"
     height = quality_str.replace("p", "")
     
-    print(f"ダウンロードを開始します。対象URL: {url}")
+    print(f"ダウンロードを開始します。対象URL: {original_url}")
+    print(f"自動検出されたドメイン: {base_url}")
     print(f"指定された最大画質: {quality_str} (高さ {height}px 以下)")
+    
+    upload_dir = "kaggle_upload"
+    os.makedirs(upload_dir, exist_ok=True)
     
     # 基本設定
     ydl_opts = {
         'simulate': False,
         'quiet': False,
-        'outtmpl': '%(id)s.%(ext)s', # 動画IDをファイル名にする
-        'noprogress': True, # 進捗ログを非表示にする
+        'outtmpl': f'{upload_dir}/video.mp4', 
+        'noprogress': True,
+        
+        # 動的に抽出したドメインをRefererとOriginにセットします
         'http_headers': {
-            'Referer': 'https://missav.ws/',
-            'Origin': 'https://missav.ws'
+            'Referer': f"{base_url}/",
+            'Origin': base_url
         }
     }
     
     try:
-        # ダウンロード前に情報を取得
+        # ★ ご要望通り、入力された「original_url」をそのまま直接引き渡して動画情報を取得します
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             print("動画の配信URLを抽出しています...")
-            info = ydl.extract_info(url, download=False)
+            info = ydl.extract_info(original_url, download=False)
             
             original_download_url = info.get('url')
             
             if original_download_url:
                 print(f"抽出した元のURL: {original_download_url}")
                 
-                # ★ 正規表現を使い、URLの中にある「/（任意の数字）p/」の部分を、
-                # ユーザーが指定した「/{指定画質}p/」に置き換えます。
-                # 例: /1080p/ や /720p/ を、確実に /360p/ に書き換えることができます。
+                # 画質の書き換え
                 target_download_url = re.sub(r'/\d+p/', f'/{height}p/', original_download_url)
                 
                 if target_download_url != original_download_url:
@@ -51,7 +68,21 @@ def main():
                 
                 # ダウンロードを実行
                 ydl.download([target_download_url])
-                print("【ダウンロード成功】ファイルを正常に保存しました。")
+                print("【ダウンロード成功】動画ファイルを正常に保存しました。")
+                
+                # 指示書（dataset-metadata.json）の自動作成
+                metadata = {
+                    "title": f"Video {video_id}",
+                    "id": f"masashiki/{video_id}",
+                    "licenses": [{"name": "CC0-1.0"}]
+                }
+                
+                metadata_path = os.path.join(upload_dir, "dataset-metadata.json")
+                with open(metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(metadata, f, indent=2, ensure_ascii=False)
+                
+                print("【指示書作成成功】dataset-metadata.json を自動生成しました。")
+                
             else:
                 print("エラー: 動画の配信URLを取得できませんでした。")
                 sys.exit(1)
