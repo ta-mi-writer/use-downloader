@@ -1,4 +1,5 @@
 import sys
+import re  # ★ 正規表現モジュールをインポートします
 import yt_dlp
 
 def main():
@@ -15,7 +16,7 @@ def main():
     print(f"ダウンロードを開始します。対象URL: {url}")
     print(f"指定された最大画質: {quality_str} (高さ {height}px 以下)")
     
-    # 基本設定（ヘッダーと一時ファイルの非表示）
+    # 基本設定
     ydl_opts = {
         'simulate': False,
         'quiet': False,
@@ -28,26 +29,27 @@ def main():
     }
     
     try:
-        # 一旦、実際にダウンロードはせず、動画の配信URLなどの情報だけを抽出します
+        # ダウンロード前に情報を取得
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             print("動画の配信URLを抽出しています...")
             info = ydl.extract_info(url, download=False)
             
-            # プラグインが自動取得した元の動画配信URL (通常は 1080p)
             original_download_url = info.get('url')
             
             if original_download_url:
                 print(f"抽出した元のURL: {original_download_url}")
                 
-                # ★ URL内の "/1080p/" という部分を、ユーザーが選択した画質（例："/360p/"）に書き換えます
-                if "/1080p/" in original_download_url:
-                    target_download_url = original_download_url.replace("/1080p/", f"/{height}p/")
+                # ★ 正規表現を使い、URLの中にある「/（任意の数字）p/」の部分を、
+                # ユーザーが指定した「/{指定画質}p/」に置き換えます。
+                # 例: /1080p/ や /720p/ を、確実に /360p/ に書き換えることができます。
+                target_download_url = re.sub(r'/\d+p/', f'/{height}p/', original_download_url)
+                
+                if target_download_url != original_download_url:
                     print(f"指定画質（{quality_str}）のURLに書き換えました: {target_download_url}")
                 else:
-                    target_download_url = original_download_url
-                    print("URL構造が書き換え対象外のため、元のURLで進めます。")
+                    print("URLの画質部分を書き換えられなかったため、元のURLのまま実行します。")
                 
-                # 書き換えた正しい画質のURLでダウンロードを実行します
+                # ダウンロードを実行
                 ydl.download([target_download_url])
                 print("【ダウンロード成功】ファイルを正常に保存しました。")
             else:
