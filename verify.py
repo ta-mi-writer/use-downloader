@@ -5,6 +5,25 @@ import json
 from urllib.parse import urlparse
 import yt_dlp
 
+# ★ 進捗ログを「間引いて」出力するための変数と関数を定義します
+last_logged_fragment = 0
+
+def my_progress_hook(d):
+    global last_logged_fragment
+    if d['status'] == 'downloading':
+        # 現在ダウンロードしたパーツ数と、全体のパーツ数を取得
+        fragment_index = d.get('fragment_index', 0)
+        fragment_count = d.get('fragment_count', 1)
+        
+        # 100パーツごとに1行だけログを出力します（これでブラウザは絶対に重くなりません）
+        if fragment_index % 100 == 0 and fragment_index != last_logged_fragment:
+            percent = (fragment_index / fragment_count) * 100 if fragment_count else 0
+            print(f"ダウンロード進行中... {fragment_index}/{fragment_count} パーツ完了 (進捗: {percent:.1f}%)")
+            last_logged_fragment = fragment_index
+            
+    elif d['status'] == 'finished':
+        print("動画データのダウンロードが完了しました。動画の結合処理を開始します...")
+
 def main():
     if len(sys.argv) < 2:
         print("エラー: URLが指定されていません。")
@@ -12,13 +31,10 @@ def main():
         
     original_url = sys.argv[1]
     
-    # 1. 入力されたURLから、動画の固有ID（例: siro-5231 や dm285）を抽出します
-    # 保存用のファイル名（video_id）と、Kaggleのデータセット名に使用します
+    # 1. 入力されたURLから、動画の固有ID（例: siro-5231）を抽出
     video_id = original_url.rstrip('/').split('/')[-1]
     
-    # 2. 【ミラーサイト対策】
-    # 入力されたミラーサイト（例: https://missav.ai や https://njavtv.com など）から、
-    # プロトコルとドメイン名だけを動的に抽出します
+    # 2. ミラーサイトのドメイン名を動的に抽出
     parsed_url = urlparse(original_url)
     base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
     
@@ -38,9 +54,16 @@ def main():
         'simulate': False,
         'quiet': False,
         'outtmpl': f'{upload_dir}/video.mp4', 
-        'noprogress': True,
+        'noprogress': True, # 標準の毎秒進捗をオフにする
         
-        # 動的に抽出したドメインをRefererとOriginにセットします
+        # ★ ネットワークの安定化設定を追加します
+        'timeout': 30,          # 30秒応答がない場合はタイムアウトさせる
+        'retries': 10,          # 失敗しても最大10回自動リトライする
+        'fragment_retries': 10, # 各パーツのダウンロード失敗時も最大10回自動リトライする
+        
+        # ★ 自作の間引き進捗ログを登録します
+        'progress_hooks': [my_progress_hook],
+        
         'http_headers': {
             'Referer': f"{base_url}/",
             'Origin': base_url
@@ -48,7 +71,7 @@ def main():
     }
     
     try:
-        # ★ ご要望通り、入力された「original_url」をそのまま直接引き渡して動画情報を取得します
+        # ダウンロード前に情報を取得
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             print("動画の配信URLを抽出しています...")
             info = ydl.extract_info(original_url, download=False)
@@ -64,7 +87,7 @@ def main():
                 if target_download_url != original_download_url:
                     print(f"指定画質（{quality_str}）のURLに書き換えました: {target_download_url}")
                 else:
-                    print("URLの画質部分を書き換えられなかったため、元のURLのまま実行します。")
+                    print("URL of resolution not matched, proceed with original URL.")
                 
                 # ダウンロードを実行
                 ydl.download([target_download_url])
