@@ -11,7 +11,7 @@ on:
         description: '画質を選択してください（デフォルトは 480p）'
         required: true
         type: choice
-        default: '480p' # デフォルトの選択肢
+        default: '480p'
         options:
           - '1080p'
           - '720p'
@@ -38,7 +38,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      # 3. 引数に「動画URL」と「選択した画質」の2つを渡して実行します
+      # 3. ダウンロード実行
       - name: Run download with uv
         run: |
           uv run \
@@ -46,9 +46,25 @@ jobs:
             --with "git+https://github.com/smalltownjj/yt-dlp-plugin-missav.git" \
             verify.py "${{ github.event.inputs.video_url }}" "${{ github.event.inputs.video_quality }}"
 
-      # 4. ダウンロードされた動画ファイルをGitHubに保存
-      - name: Upload downloaded video
-        uses: actions/upload-artifact@v4
-        with:
-          name: downloaded-video
-          path: "*.mp4"
+      # 4. 【追加】Kaggle転送用の専用一時フォルダを準備する
+      # 動画ファイル（mp4）と、リポジトリに保存されている指示書（dataset-metadata.json）だけを集めます
+      - name: Prepare Kaggle upload directory
+        run: |
+          mkdir kaggle_upload
+          cp dataset-metadata.json kaggle_upload/
+          mv *.mp4 kaggle_upload/
+
+      # 5. 【追加】Kaggleに新しいバージョンとして動画を転送する
+      # シークレット（USERNAMEとKEY）を環境変数に安全にセットして、Kaggle CLIを実行します
+      - name: Upload to Kaggle
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          uv run --with kaggle kaggle datasets version \
+            -p kaggle_upload \
+            -m "Uploaded by GitHub Actions" \
+            --dir-mode skip
+
+      # （参考：Kaggleへの転送が成功すれば、GitHub上に重い動画を残しておく必要がなくなるため、
+      #   以前の "Upload downloaded video" のステップは削除しても問題ありません）
