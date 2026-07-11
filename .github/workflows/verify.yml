@@ -54,17 +54,18 @@ jobs:
           cp dataset-metadata.json kaggle_upload/
           mv *.mp4 kaggle_upload/
 
-      # 5. 【追加】Kaggleに新しいバージョンとして動画を転送する
-      # シークレット（USERNAMEとKEY）を環境変数に安全にセットして、Kaggle CLIを実行します
+      # 5. 【修正】最新のKaggle認証ファイル（access_token）を物理的に自動作成する
+      # ユーザー様がVPSで実行された「access_token」の手順と全く同じ動作を再現します
+      - name: Authenticate Kaggle
+        run: |
+          mkdir -p ~/.kaggle
+          echo "${{ secrets.KAGGLE_KEY }}" > ~/.kaggle/access_token
+          chmod 600 ~/.kaggle/access_token
+
+      # 6. Kaggleに新しいバージョンとして動画を転送する
       - name: Upload to Kaggle
-        env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
           uv run --with kaggle kaggle datasets version \
             -p kaggle_upload \
             -m "Uploaded by GitHub Actions" \
             --dir-mode skip
-
-      # （参考：Kaggleへの転送が成功すれば、GitHub上に重い動画を残しておく必要がなくなるため、
-      #   以前の "Upload downloaded video" のステップは削除しても問題ありません）
