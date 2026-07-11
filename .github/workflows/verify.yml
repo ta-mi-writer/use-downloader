@@ -38,34 +38,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      # 3. ダウンロード実行
-      - name: Run download with uv
+      # 3. ダウンロードと指示書の自動作成を実行
+      # これだけで、Actions環境の中に「kaggle_upload/video.mp4」と「kaggle_upload/dataset-metadata.json」が揃います
+      - name: Run download and metadata generation
         run: |
           uv run \
             --with yt-dlp \
             --with "git+https://github.com/smalltownjj/yt-dlp-plugin-missav.git" \
             verify.py "${{ github.event.inputs.video_url }}" "${{ github.event.inputs.video_quality }}"
 
-      # 4. 【追加】Kaggle転送用の専用一時フォルダを準備する
-      # 動画ファイル（mp4）と、リポジトリに保存されている指示書（dataset-metadata.json）だけを集めます
-      - name: Prepare Kaggle upload directory
-        run: |
-          mkdir kaggle_upload
-          cp dataset-metadata.json kaggle_upload/
-          mv *.mp4 kaggle_upload/
-
-      # 5. 【修正】最新のKaggle認証ファイル（access_token）を物理的に自動作成する
-      # ユーザー様がVPSで実行された「access_token」の手順と全く同じ動作を再現します
+      # 4. 最新のKaggle認証ファイル（access_token）を自動作成
       - name: Authenticate Kaggle
         run: |
           mkdir -p ~/.kaggle
           echo "${{ secrets.KAGGLE_KEY }}" > ~/.kaggle/access_token
           chmod 600 ~/.kaggle/access_token
 
-      # 6. Kaggleに新しいバージョンとして動画を転送する
-      - name: Upload to Kaggle
+      # 5. Kaggleに新規データセットとしてアップロードする
+      # ★ version ではなく create コマンドを実行します
+      # デフォルトで非公開（Private）で作成されるため、第三者に見られる心配はありません。
+      - name: Upload to Kaggle (New Dataset)
         run: |
-          uv run --with kaggle kaggle datasets version \
-            -p kaggle_upload \
-            -m "Uploaded by GitHub Actions" \
-            --dir-mode skip
+          uv run --with kaggle kaggle datasets create -p kaggle_upload
